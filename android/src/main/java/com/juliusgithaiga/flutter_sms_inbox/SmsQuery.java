@@ -1,6 +1,7 @@
 package com.juliusgithaiga.flutter_sms_inbox;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
@@ -36,8 +37,8 @@ enum SmsQueryRequest {
 	}
 }
 
-class SmsQueryHandler implements RequestPermissionsResultListener {
-	private final PluginRegistry.Registrar registrar;
+class SmsQueryHandler {
+	private final Context context;
 	private final String[] permissionsList = new String[]{Manifest.permission.READ_SMS};
 	private MethodChannel.Result result;
 	private SmsQueryRequest request;
@@ -46,9 +47,9 @@ class SmsQueryHandler implements RequestPermissionsResultListener {
 	private int threadId = -1;
 	private String address = null;
 
-	SmsQueryHandler(PluginRegistry.Registrar registrar, MethodChannel.Result result, SmsQueryRequest request,
+	SmsQueryHandler(Context context, MethodChannel.Result result, SmsQueryRequest request,
 					int start, int count, int threadId, String address) {
-		this.registrar = registrar;
+		this.context = context;
 		this.result = result;
 		this.request = request;
 		this.start = start;
@@ -57,10 +58,10 @@ class SmsQueryHandler implements RequestPermissionsResultListener {
 		this.address = address;
 	}
 
-	void handle(Permissions permissions) {
-		if (permissions.checkAndRequestPermission(permissionsList, Permissions.SEND_SMS_ID_REQ)) {
-			querySms();
-		}
+	void handle() {
+//		if (permissions.checkAndRequestPermission(permissionsList, Permissions.SEND_SMS_ID_REQ)) {
+		querySms();
+//		}
 	}
 
 	private JSONObject readSms(Cursor cursor) {
@@ -85,7 +86,7 @@ class SmsQueryHandler implements RequestPermissionsResultListener {
 
 	private void querySms() {
 		ArrayList<JSONObject> list = new ArrayList<>();
-		Cursor cursor = registrar.context().getContentResolver().query(this.request.toUri(), null, null, null, null);
+		Cursor cursor = context.getContentResolver().query(this.request.toUri(), null, null, null, null);
 		if (cursor == null) {
 			result.error("#01", "permission denied", null);
 			return;
@@ -119,74 +120,4 @@ class SmsQueryHandler implements RequestPermissionsResultListener {
 		cursor.close();
 		result.success(list);
 	}
-
-	@Override
-	public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-		if (requestCode != Permissions.READ_SMS_ID_REQ) {
-			return false;
-		}
-		boolean isOk = true;
-		for (int res : grantResults) {
-			if (res != PackageManager.PERMISSION_GRANTED) {
-				isOk = false;
-				break;
-			}
-		}
-		if (isOk) {
-			querySms();
-			return true;
-		}
-		result.error("#01", "permission denied", null);
-		return false;
-	}
-}
-
-class SmsQuery implements MethodCallHandler {
-	private final PluginRegistry.Registrar registrar;
-	private final Permissions permissions;
-
-
-	SmsQuery(PluginRegistry.Registrar registrar) {
-		this.registrar = registrar;
-		this.permissions = new Permissions(registrar.activity());
-	}
-
-	@Override
-	public void onMethodCall(MethodCall call, Result result) {
-		int start = 0;
-		int count = -1;
-		int threadId = -1;
-		String address = null;
-		SmsQueryRequest request;
-		switch (call.method) {
-			case "getInbox":
-				request = SmsQueryRequest.Inbox;
-				break;
-			case "getSent":
-				request = SmsQueryRequest.Sent;
-				break;
-			case "getDraft":
-				request = SmsQueryRequest.Draft;
-				break;
-			default:
-				result.notImplemented();
-				return;
-		}
-		if (call.hasArgument("start")) {
-			start = call.argument("start");
-		}
-		if (call.hasArgument("count")) {
-			count = call.argument("count");
-		}
-		if (call.hasArgument("thread_id")) {
-			threadId = call.argument("thread_id");
-		}
-		if (call.hasArgument("address")) {
-			address = call.argument("address");
-		}
-		SmsQueryHandler handler = new SmsQueryHandler(registrar, result, request, start, count, threadId, address);
-		this.registrar.addRequestPermissionsResultListener(handler);
-		handler.handle(permissions);
-	}
-
 }

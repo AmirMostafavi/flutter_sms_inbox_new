@@ -40,6 +40,18 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  Future<void> getSMS() async {
+    final smsEntryIterables = await SmsQuery().getAllSms;
+    smsEntryIterables.forEach(
+      (entry) {
+        print(entry.body);
+        print(entry.sender);
+        print(entry.dateSent);
+        print('-----');
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -48,7 +60,9 @@ class _MyAppState extends State<MyApp> {
           title: const Text('Plugin example app'),
         ),
         body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+          child: TextButton(
+              onPressed: getSMS,
+              child: Text('Running on: $_platformVersion\n')),
         ),
       ),
     );
